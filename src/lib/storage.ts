@@ -1,4 +1,5 @@
 import { Movie } from './tmdb';
+import toast from 'react-hot-toast';
 
 export interface UserRating {
   movieId: number;
@@ -16,6 +17,7 @@ export const addToFavorites = (movie: Movie): void => {
   if (!favorites.find(f => f.id === movie.id)) {
     favorites.push(movie);
     localStorage.setItem('favorites', JSON.stringify(favorites));
+    toast.success(`Added "${movie.title}" to favorites!`);
   }
 };
 
