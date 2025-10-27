@@ -1,0 +1,45 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+
+interface SearchBarProps {
+  onSearch: (query: string) => void;
+  placeholder?: string;
+}
+
+const SearchBar = ({ onSearch, placeholder = "Rechercher un film..." }: SearchBarProps) => {
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      onSearch(query);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [query, onSearch]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full max-w-md mx-auto mb-8"
+      suppressHydrationWarning
+    >
+      <div className="relative" suppressHydrationWarning>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder}
+          className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600/20 transition-colors"
+        />
+        <div className="absolute right-3 top-3 text-gray-400" suppressHydrationWarning>
+          🔍
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+export default SearchBar;
