@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
   placeholder?: string;
 }
 
-const SearchBar = ({ onSearch, placeholder = "Rechercher un film..." }: SearchBarProps) => {
+const SearchBar = ({ onSearch }: SearchBarProps) => {
   const [query, setQuery] = useState('');
+  const { t } = useLanguage();
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -31,7 +33,7 @@ const SearchBar = ({ onSearch, placeholder = "Rechercher un film..." }: SearchBa
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={placeholder}
+          placeholder={t('search')}
           className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600/20 transition-colors"
         />
         <div className="absolute right-3 top-3 text-gray-400" suppressHydrationWarning>

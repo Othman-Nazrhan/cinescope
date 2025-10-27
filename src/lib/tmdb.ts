@@ -103,9 +103,12 @@ const getMockShows = (): Movie[] => [
 
 export const fetchTrendingMovies = async (page = 1): Promise<TMDBResponse<Movie>> => {
   const shows = await fetchTVMazeShows();
+  const startIndex = (page - 1) * 20;
+  const endIndex = startIndex + 20;
+  const paginatedShows = shows.slice(startIndex, endIndex);
   return {
-    results: shows,
-    total_pages: 1,
+    results: paginatedShows,
+    total_pages: Math.ceil(shows.length / 20),
     page
   };
 };
@@ -209,4 +212,133 @@ export const fetchGenres = async (): Promise<{ id: number; name: string }[]> => 
     { id: 10752, name: "War" },
     { id: 37, name: "Western" }
   ];
+};
+
+export const fetchSimilarMovies = async (movieId: number): Promise<Movie[]> => {
+  const shows = await fetchTVMazeShows();
+  const movie = shows.find(m => m.id === movieId);
+  if (!movie) return [];
+
+  // Find movies with at least one matching genre
+  const similar = shows.filter(m =>
+    m.id !== movieId &&
+    m.genres?.some(g => movie.genres?.some(mg => mg.name === g.name))
+  ).slice(0, 6); // Limit to 6 similar movies
+
+  return similar;
+};
+
+export const fetchMoviesByGenre = async (genreName: string, page = 1): Promise<TMDBResponse<Movie>> => {
+  const shows = await fetchTVMazeShows();
+  const filtered = shows.filter(m =>
+    m.genres?.some(g => g.name.toLowerCase() === genreName.toLowerCase())
+  );
+
+  return {
+    results: filtered,
+    total_pages: 1,
+    page
+  };
+};
+
+export const fetchRandomMovie = async (): Promise<Movie> => {
+  const shows = await fetchTVMazeShows();
+  const randomIndex = Math.floor(Math.random() * shows.length);
+  return shows[randomIndex];
+};
+
+export interface Video {
+  key: string;
+  name: string;
+  site: string;
+  type: string;
+}
+
+export const fetchMovieVideos = async (movieId: number): Promise<Video[]> => {
+  // TVMaze doesn't provide videos, so mock a YouTube trailer based on movie title
+  const shows = await fetchTVMazeShows();
+  const movie = shows.find(m => m.id === movieId);
+  if (!movie) return [];
+
+  // Mock YouTube video key (in reality, you'd search YouTube API, but for demo, use a placeholder)
+  // For originality, we'll use a search URL that can be embedded
+  return [{
+    key: `search?q=${encodeURIComponent(movie.title + ' trailer')}`,
+    name: `${movie.title} Trailer`,
+    site: 'YouTube',
+    type: 'Trailer'
+  }];
+};
+
+export interface CastMember {
+  id: number;
+  name: string;
+  character: string;
+  image?: string;
+}
+
+export const fetchMovieCast = async (movieId: number): Promise<CastMember[]> => {
+  try {
+    const response = await fetch(`${TVMAZE_BASE_URL}/shows/${movieId}/cast`);
+    if (!response.ok) throw new Error('Failed to fetch cast');
+    const data: { person: { id: number; name: string; image?: { medium: string } }; character: { name: string } }[] = await response.json();
+
+    return data.slice(0, 10).map(item => ({
+      id: item.person.id,
+      name: item.person.name,
+      character: item.character.name,
+      image: item.person.image?.medium
+    }));
+  } catch (error) {
+    console.error('Error fetching cast:', error);
+    return [];
+  }
+};
+
+export interface Person {
+  id: number;
+  name: string;
+  image?: string;
+  biography?: string;
+  known_for?: Movie[];
+}
+
+export const fetchPersonDetails = async (personId: number): Promise<Person> => {
+  try {
+    const response = await fetch(`${TVMAZE_BASE_URL}/people/${personId}`);
+    if (!response.ok) throw new Error('Failed to fetch person details');
+    const person: { id: number; name: string; image?: { medium: string }; biography?: string } = await response.json();
+
+    // Fetch cast credits for known_for
+    const castResponse = await fetch(`${TVMAZE_BASE_URL}/people/${personId}/castcredits?embed=show`);
+    const castData: { _embedded: { show: TVMazeShow } }[] = castResponse.ok ? await castResponse.json() : [];
+
+    const known_for = castData.slice(0, 5).map(item => ({
+      id: item._embedded.show.id,
+      title: item._embedded.show.name,
+      poster_path: item._embedded.show.image?.medium || "/placeholder-movie.svg",
+      backdrop_path: item._embedded.show.image?.original || "/placeholder-movie.svg",
+      overview: item._embedded.show.summary ? item._embedded.show.summary.replace(/<[^>]*>/g, '') : '',
+      vote_average: item._embedded.show.rating?.average || 7.0,
+      release_date: item._embedded.show.premiered || '',
+      genre_ids: [],
+      genres: item._embedded.show.genres.map((genre, index) => ({ id: index + 1, name: genre }))
+    }));
+
+    return {
+      id: person.id,
+      name: person.name,
+      image: person.image?.medium,
+      biography: person.biography || 'No biography available.',
+      known_for
+    };
+  } catch (error) {
+    console.error('Error fetching person details:', error);
+    return {
+      id: personId,
+      name: 'Unknown',
+      biography: 'No information available.',
+      known_for: []
+    };
+  }
 };

@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import Image from 'next/image';
-import { Movie, fetchMovieDetails } from '@/lib/tmdb';
+import { Movie, fetchMovieDetails, fetchSimilarMovies, fetchMovieVideos, fetchMovieCast, Video, CastMember } from '@/lib/tmdb';
 import { addToFavorites, removeFromFavorites, isFavorite, getUserRating, setUserRating } from '@/lib/storage';
+import MovieCard from '@/components/MovieCard';
+import ActorPopup from '@/components/ActorPopup';
+import ImageWithFallback from '@/components/ImageWithFallback';
 
 const RatingStars = ({ rating, onRatingChange }: { rating: number | null; onRatingChange: (rating: number) => void }) => {
   return (
@@ -28,16 +30,28 @@ export default function MoviePage() {
   const id = parseInt(params.id as string);
 
   const [movie, setMovie] = useState<Movie | null>(null);
+  const [similarMovies, setSimilarMovies] = useState<Movie[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [cast, setCast] = useState<CastMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRating, setUserRatingState] = useState<number | null>(null);
+  const [selectedActor, setSelectedActor] = useState<number | null>(null);
 
   useEffect(() => {
-    const loadMovie = async () => {
+    const loadMovieData = async () => {
       try {
         setLoading(true);
-        const data = await fetchMovieDetails(id);
-        setMovie(data);
+        const [movieData, similarData, videosData, castData] = await Promise.all([
+          fetchMovieDetails(id),
+          fetchSimilarMovies(id),
+          fetchMovieVideos(id),
+          fetchMovieCast(id)
+        ]);
+        setMovie(movieData);
+        setSimilarMovies(similarData);
+        setVideos(videosData);
+        setCast(castData);
         setUserRatingState(getUserRating(id));
       } catch (err) {
         setError('Erreur lors du chargement du film');
@@ -47,7 +61,7 @@ export default function MoviePage() {
       }
     };
 
-    if (id) loadMovie();
+    if (id) loadMovieData();
   }, [id]);
 
   const handleFavoriteToggle = () => {
@@ -85,13 +99,19 @@ export default function MoviePage() {
     );
   }
 
+  const posterSrc = movie.poster_path.startsWith('http')
+    ? movie.poster_path
+    : movie.poster_path.startsWith('/')
+    ? movie.poster_path
+    : `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col lg:flex-row gap-8">
         <div className="lg:w-1/3">
           <div className="relative h-96 lg:h-[600px] rounded-lg overflow-hidden">
-            <Image
-              src={movie.poster_path.startsWith('http') ? movie.poster_path : movie.poster_path.startsWith('/') ? movie.poster_path : `https://image.tmdb.org/t/p/w500${movie.poster_path}`}
+            <ImageWithFallback
+              src={posterSrc}
               alt={movie.title}
               fill
               className="object-cover"
@@ -133,6 +153,65 @@ export default function MoviePage() {
           </div>
         </div>
       </div>
+
+      {/* Trailer Section */}
+      {videos.length > 0 && (
+        <div className="mt-12">
+          <h2 className="text-2xl font-bold text-white mb-6">Trailer</h2>
+          <div className="aspect-video w-full max-w-4xl">
+            <iframe
+              src={`https://www.youtube.com/embed?listType=search&list=${videos[0].key}`}
+              title={`${movie.title} Trailer`}
+              className="w-full h-full rounded-lg"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Cast Section */}
+      {cast.length > 0 && (
+        <div className="mt-12">
+          <h2 className="text-2xl font-bold text-white mb-6">Cast</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {cast.map((actor) => (
+              <div
+                key={actor.id}
+                className="text-center cursor-pointer hover:scale-105 transition-transform"
+                onClick={() => setSelectedActor(actor.id)}
+              >
+                <ImageWithFallback
+                  src={actor.image || ''}
+                  alt={actor.name}
+                  width={100}
+                  height={150}
+                  className="rounded-lg object-cover w-full mb-2"
+                  fallbackSrc="/placeholder-movie.svg"
+                />
+                <h3 className="text-white font-semibold text-sm">{actor.name}</h3>
+                <p className="text-gray-400 text-xs">{actor.character}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Similar Movies Section */}
+      {similarMovies.length > 0 && (
+        <div className="mt-12">
+          <h2 className="text-2xl font-bold text-white mb-6">Similar Movies</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+            {similarMovies.map((similarMovie) => (
+              <MovieCard key={similarMovie.id} movie={similarMovie} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Actor Popup */}
+      {selectedActor && (
+        <ActorPopup actorId={selectedActor} onClose={() => setSelectedActor(null)} />
+      )}
     </div>
   );
 }
