@@ -1,21 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React from 'react';
 import { getFavorites, getUserRatings } from '@/lib/storage';
-import { Movie } from '@/lib/tmdb';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function StatsPage() {
-  const [favorites, setFavorites] = useState<Movie[]>([]);
-  const [ratings, setRatings] = useState<{ movieId: number; rating: number }[]>([]);
+  const favorites = getFavorites();
+  const ratings = getUserRatings();
   const { t } = useLanguage();
-
-  useEffect(() => {
-    const favs = getFavorites();
-    const rats = getUserRatings();
-    setFavorites(favs);
-    setRatings(rats);
-  }, []);
 
   const totalFavorites = favorites.length;
   const averageRating = ratings.length > 0
